@@ -1,0 +1,28 @@
+# Android build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Build dirs
+/app/build/
+/build/
+
+# Gradle
+.gradle/
+local.properties
+gradle.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+*.swp
+Thumbs.db
+
+# Keystore — COMMITTED INTENTIONALLY (self-signed release key)
+# DO NOT add keystore.jks here — it must stay in the repo for builds
+
+# Logs
+*.log
+/app/src/main/assets/

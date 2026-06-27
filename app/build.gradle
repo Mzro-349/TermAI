@@ -1,0 +1,64 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.termai'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.termai"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        release {
+            storeFile     file("keystore.jks")
+            storePassword "TermAI@2026#Secure"
+            keyAlias      "termai-release"
+            keyPassword   "TermAI@2026#Secure"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled    true
+            shrinkResources  true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+        debug {
+            debuggable true
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    bundle {
+        language { enableSplit = true }
+        density  { enableSplit = true }
+        abi      { enableSplit = true }
+    }
+
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+        }
+    }
+}
+
+dependencies {
+    // Google Play Billing v6 (required for Play Store)
+    implementation 'com.android.billingclient:billing:6.2.1'
+
+    // AndroidX Core
+    implementation 'androidx.core:core:1.12.0'
+}
