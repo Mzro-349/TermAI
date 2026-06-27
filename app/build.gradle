@@ -44,7 +44,7 @@ android {
 }
 
 dependencies {
-    coreLibraryDesugaring 'com.android.tools.build:desugaring:2.0.4'
+    coreLibraryDesugaring 'com.android.tools.build:desugar_jdk_libs:2.0.4'
     implementation 'com.android.billingclient:billing:6.2.1'
     implementation 'androidx.core:core:1.12.0'
 }
