@@ -11,7 +11,7 @@ on:
           - release-aab
           - release-apk
           - debug-apk
-        default: release-aab
+        default: release-apk
 
 jobs:
   build:
