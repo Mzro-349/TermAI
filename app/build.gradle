@@ -12,6 +12,7 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0.0"
+        multiDexEnabled true
     }
 
     signingConfigs {
@@ -32,33 +33,18 @@ android {
         }
         debug {
             debuggable true
-            applicationIdSuffix ".debug"
-            versionNameSuffix "-debug"
         }
     }
 
     compileOptions {
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
-    }
-
-    bundle {
-        language { enableSplit = true }
-        density  { enableSplit = true }
-        abi      { enableSplit = true }
-    }
-
-    packagingOptions {
-        resources {
-            excludes += '/META-INF/{AL2.0,LGPL2.1}'
-        }
     }
 }
 
 dependencies {
-    // Google Play Billing v6 (required for Play Store)
+    coreLibraryDesugaring 'com.android.tools.build:desugaring:2.0.4'
     implementation 'com.android.billingclient:billing:6.2.1'
-
-    // AndroidX Core
     implementation 'androidx.core:core:1.12.0'
 }
