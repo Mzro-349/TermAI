@@ -72,8 +72,8 @@ public class ShellEngine {
         pb.environment().put("LANG",    "en_US.UTF-8");
         pb.environment().put("PS1",     ""); // suppress prompt — we manage it in JS
         pb.environment().put("PATH",
-            "/data/data/com.termai/files/usr/bin:"
-            + "/data/data/com.termai/files/usr/bin/applets:"
+            ""
+            + ""
             + "/system/bin:/system/xbin");
         pb.environment().put("TMPDIR",  "/data/local/tmp");
         pb.environment().put("PREFIX",  "/data/data/com.termai/files/usr");
