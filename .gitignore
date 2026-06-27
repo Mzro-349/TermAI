@@ -11,7 +11,6 @@
 # Gradle
 .gradle/
 local.properties
-gradle.properties
 
 # IDE
 .idea/
