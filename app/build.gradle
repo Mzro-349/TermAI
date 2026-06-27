@@ -12,7 +12,6 @@ android {
         targetSdk 34
         versionCode 1
         versionName "1.0.0"
-        multiDexEnabled true
     }
 
     signingConfigs {
@@ -26,8 +25,8 @@ android {
 
     buildTypes {
         release {
-            minifyEnabled    true
-            shrinkResources  true
+            minifyEnabled   true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             signingConfig signingConfigs.release
         }
@@ -37,14 +36,12 @@ android {
     }
 
     compileOptions {
-        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
     }
 }
 
 dependencies {
-    coreLibraryDesugaring 'com.android.tools.build:desugar_jdk_libs:2.0.4'
     implementation 'com.android.billingclient:billing:6.2.1'
     implementation 'androidx.core:core:1.12.0'
 }
