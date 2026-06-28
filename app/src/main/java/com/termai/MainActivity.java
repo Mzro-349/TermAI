@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
 import android.webkit.*;
-import android.os.Build;
 
 import com.termai.ai.AIManager;
 import com.termai.billing.BillingManager;
@@ -36,17 +35,15 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         try {
             initApp();
         } catch (Throwable e) {
-            showCrashDialog(e);
+            showFatalError(e);
         }
     }
 
     private void initApp() {
-        setFullscreen();
-        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-
         logger       = new Logger(this);
         crashManager = new CrashManager(this, logger);
         crashManager.sessionStarted();
@@ -59,12 +56,14 @@ public class MainActivity extends Activity {
         setContentView(webView);
         setupWebView();
 
-        aiManager = new AIManager(this, settings, logger, webView);
-
-        // Billing must be before loadUrl so onPageFinished null check passes
-        billing = new BillingManager(this, webView, logger);
-        billing.setListener(isPremium -> plugins.setPremiumActive(isPremium));
-
+        String homeDir = getFilesDir().getAbsolutePath() + "/home";
+        termBridge     = new TerminalBridge(this, webView, homeDir, security, plugins, logger);
+        aiManager      = new AIManager(this, settings, logger, webView);
+        billing        = new BillingManager(this, webView, logger);
+        billing.setListener(isPremium -> {
+            plugins.setPremiumActive(isPremium);
+            logger.billing(Logger.Level.INFO, "Premium: " + isPremium);
+        });
         fileManager    = new FileManager(this, logger);
         projectManager = new ProjectManager(this, logger);
 
@@ -92,13 +91,14 @@ public class MainActivity extends Activity {
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-
-        String homeDir = getFilesDir().getAbsolutePath() + "/home";
-        termBridge = new TerminalBridge(this, webView, homeDir, security, plugins, logger);
+        webView.setFocusable(true);
+        webView.setFocusableInTouchMode(true);
+        webView.requestFocus();
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView v, String url) {
+                setFullscreen();
                 if (billing != null) billing.queryPurchases();
             }
         });
@@ -116,46 +116,45 @@ public class MainActivity extends Activity {
         });
     }
 
-    // يظهر سبب الكراش بدل ما يكسر بصمت
-    private void showCrashDialog(Throwable e) {
-        String cause = e.getClass().getSimpleName() + ": " + e.getMessage();
-        if (e.getCause() != null) cause += "\n↳ " + e.getCause().getMessage();
+    private void setFullscreen() {
+        try {
+            getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_FULLSCREEN        |
+                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION   |
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY  |
+                View.SYSTEM_UI_FLAG_LAYOUT_STABLE     |
+                View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+        } catch (Throwable ignored) {}
+    }
 
-        android.util.Log.e("TermAI_FATAL", cause, e);
-
+    private void showFatalError(Throwable e) {
+        String msg = e.getClass().getSimpleName() + ":\n" + e.getMessage();
+        if (e.getCause() != null) msg += "\nCaused by: " + e.getCause().getMessage();
+        getSharedPreferences("termai_crash", MODE_PRIVATE)
+            .edit().putString("last_fatal", msg).apply();
         try {
             new AlertDialog.Builder(this)
-                .setTitle("⚠️ Startup Error")
-                .setMessage(cause)
-                .setPositiveButton("Close", (d, w) -> finish())
+                .setTitle("TermAI — Startup Error")
+                .setMessage(msg)
+                .setPositiveButton("OK", (d, w) -> finish())
                 .setCancelable(false)
                 .show();
         } catch (Throwable ignored) { finish(); }
     }
 
-    private void setFullscreen() {
-        try {
-            getWindow().getDecorView().post(() -> {
-                getWindow().getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_FULLSCREEN        |
-                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION   |
-                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY  |
-                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE     |
-                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
-                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
-            });
-        } catch (Throwable ignored) {}
-    }
-        } else {
-            getWindow().getDecorView().setSystemUiVisibility(
-                View.SYSTEM_UI_FLAG_FULLSCREEN |
-                View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
-                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
-        }
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (webView != null) webView.onResume();
+        setFullscreen();
     }
 
-    @Override protected void onResume()  { super.onResume();  if(webView!=null)webView.onResume();  setFullscreen(); }
-    @Override protected void onPause()   { super.onPause();   if(webView!=null)webView.onPause(); }
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (webView != null) webView.onPause();
+    }
 
     @Override
     protected void onDestroy() {
@@ -172,6 +171,7 @@ public class MainActivity extends Activity {
     @Override
     public void onBackPressed() {
         if (webView != null)
-            webView.evaluateJavascript("document.dispatchEvent(new Event('backbutton'))", null);
+            webView.evaluateJavascript(
+                "document.dispatchEvent(new Event('backbutton'))", null);
     }
 }
