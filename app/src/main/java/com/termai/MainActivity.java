@@ -103,6 +103,9 @@ public class MainActivity extends Activity {
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        webView.setFocusable(true);
+        webView.setFocusableInTouchMode(true);
+        webView.requestFocus();
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
