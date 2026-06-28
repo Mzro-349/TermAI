@@ -12,7 +12,7 @@ class AIEngine {
     this.lang        = 'ar';
     this.autoAnalyze = true;
     this.security    = true;
-    this.isPremium   = false;
+    this.isPremium   = true;
     this.online      = false;
     this.history     = [];
     this.cmdContext  = [];
@@ -42,7 +42,6 @@ class AIEngine {
   call(systemPrompt, messages) {
     return new Promise((resolve, reject) => {
       if (!this.endpoint) return reject(new Error('NO_ENDPOINT'));
-      if (!this.isPremium) return reject(new Error('NOT_PREMIUM'));
 
       this.callCount++;
 
