@@ -12,6 +12,8 @@ import com.termai.log.Logger;
 
 import org.json.JSONObject;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -197,7 +199,7 @@ public class BillingManager {
         if (!connected) { connect(); return; }
         billingClient.queryProductDetailsAsync(
             QueryProductDetailsParams.newBuilder()
-                .setProductList(List.of(
+                .setProductList(Collections.singletonList(
                     QueryProductDetailsParams.Product.newBuilder()
                         .setProductId(sku).setProductType(BillingClient.ProductType.SUBS).build()))
                 .build(),
@@ -209,7 +211,7 @@ public class BillingManager {
                 mainHandler.post(() ->
                     billingClient.launchBillingFlow(activity,
                         BillingFlowParams.newBuilder()
-                            .setProductDetailsParamsList(List.of(
+                            .setProductDetailsParamsList(Collections.singletonList(
                                 BillingFlowParams.ProductDetailsParams.newBuilder()
                                     .setProductDetails(pd)
                                     .setOfferToken(offers.get(0).getOfferToken())
