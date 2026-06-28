@@ -48,7 +48,7 @@
     <button class="tk-btn" onclick="sendKey('\x1b[B')">↓</button>
     <button class="tk-btn" onclick="sendKey('\x1b[C')">→</button>
     <button class="tk-btn" onclick="sendKey('\x1b[D')">←</button>
-    <button class="tk-btn tk-sym">|</button>
+    <button class="tk-btn tk-sym" onclick="insertChar('|')">|</button>
     <button class="tk-btn tk-sym" onclick="insertChar('&')">&amp;</button>
     <button class="tk-btn tk-sym" onclick="insertChar(';')">;</button>
     <button class="tk-btn tk-sym" onclick="insertChar('~')">~</button>
@@ -172,20 +172,7 @@
       <button class="test-btn" onclick="testAIConnection()">🔗 Test Connection</button>
     </div>
 
-    <!-- Premium -->
-    <div class="settings-section premium-section">
-      <div class="section-title">💎 Premium</div>
-      <div id="premium-status-display" class="premium-status"></div>
-      <div class="premium-features">
-        <div class="pf-item"><span>✅</span> AI Chat & Commands</div>
-        <div class="pf-item"><span>✅</span> Error Analysis</div>
-        <div class="pf-item"><span>✅</span> Script Generator</div>
-        <div class="pf-item"><span>✅</span> Tab Autocomplete</div>
-        <div class="pf-item"><span>✅</span> Arabic Mode</div>
-      </div>
-      <button id="trial-btn" onclick="startTrial()" class="trial-btn">🎁 Start 7-Day Free Trial</button>
-      <button id="upgrade-btn" onclick="upgradeToPremium()" class="upgrade-btn">💎 Upgrade to Premium</button>
-    </div>
+
 
     <!-- About -->
     <div class="settings-section">
