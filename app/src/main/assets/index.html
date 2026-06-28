@@ -3,8 +3,134 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>TermAI</title>
-<link rel="stylesheet" href="terminal.css">
+<title>TermAI Preview</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+:root {
+  --bg:#0d0d0f; --bg2:#111115; --bg3:#1a1a20;
+  --green:#00e676; --purple:#7c3aed;
+  --text:#e8e8ec; --text2:#666;
+  --border:#252530; --red:#ff4455;
+}
+body {
+  background:var(--bg); color:var(--text);
+  font-family:'Courier New',monospace;
+  height:100vh; height:var(--app-height); display:flex; flex-direction:column;
+  overflow:hidden; position:fixed; width:100%;
+}
+#status-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  padding:0 12px; height:44px; flex-shrink:0;
+}
+#app-title { color:var(--green); font-weight:bold; font-size:15px; }
+#pwd-display { color:var(--text2); font-size:11px; }
+#status-bar button { background:none; border:none; font-size:18px; cursor:pointer; color:var(--text); }
+#tabs-bar {
+  display:flex; align-items:center;
+  background:var(--bg2); border-bottom:1px solid var(--border);
+  height:36px; flex-shrink:0; overflow-x:auto;
+}
+#tabs-list { display:flex; flex:1; }
+.tab {
+  padding:0 14px; height:36px; display:flex; align-items:center;
+  gap:6px; font-size:12px; color:var(--text2); cursor:pointer;
+  border-right:1px solid var(--border); white-space:nowrap;
+}
+.tab.active { color:var(--green); border-bottom:2px solid var(--green); }
+.tab-close { color:var(--text2); font-size:10px; }
+#tabs-bar > button { background:none; border:none; color:var(--text2); font-size:20px; padding:0 12px; cursor:pointer; }
+#terminal-output {
+  flex:1; overflow-y:auto; padding:8px;
+  font-size:14px; line-height:1.5; word-break:break-all;
+}
+.line-output { color:var(--text); white-space:pre-wrap; }
+.line-prompt  { color:var(--green); }
+.line-error   { color:var(--red); }
+.line-info    { color:var(--purple); }
+#input-row {
+  display:flex; align-items:center;
+  background:var(--bg2); border-top:1px solid var(--border);
+  padding:6px 8px; flex-shrink:0;
+}
+#prompt { color:var(--green); font-weight:bold; white-space:nowrap; margin-right:6px; }
+#cmd-input {
+  flex:1; background:transparent; border:none; outline:none;
+  color:var(--text); font-family:'Courier New',monospace;
+  font-size:14px; caret-color:var(--green);
+}
+#toolbar {
+  display:flex; align-items:center; gap:4px;
+  background:var(--bg2); border-top:1px solid var(--border);
+  padding:4px 6px; overflow-x:auto; flex-shrink:0;
+  scrollbar-width:none; height:44px;
+}
+#toolbar::-webkit-scrollbar { display:none; }
+#toolbar button {
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--text); font-family:'Courier New',monospace;
+  font-size:12px; padding:5px 10px; border-radius:6px;
+  cursor:pointer; white-space:nowrap; flex-shrink:0;
+}
+#toolbar button:active { background:var(--border); }
+.ai-btn { background:var(--purple) !important; border-color:var(--purple) !important; color:#fff !important; font-weight:bold; }
+#settings-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.6);
+  z-index:100; display:flex; align-items:flex-end;
+}
+#settings-panel {
+  background:var(--bg2); width:100%; border-radius:16px 16px 0 0;
+  padding:16px; max-height:80vh; overflow-y:auto;
+}
+#settings-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
+#settings-header h3 { font-size:16px; color:var(--text); font-family:sans-serif; }
+#settings-header button { background:none; border:none; color:var(--text2); font-size:18px; cursor:pointer; }
+.setting-row {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:10px 0; border-bottom:1px solid var(--border);
+  font-size:13px; font-family:sans-serif; color:var(--text);
+}
+.setting-row.col { flex-direction:column; align-items:flex-start; gap:8px; }
+.setting-row label { color:var(--text2); }
+.setting-row input[type=url] {
+  width:100%; background:var(--bg3); border:1px solid var(--border);
+  color:var(--text); padding:8px; border-radius:6px; font-size:12px; outline:none;
+}
+.setting-row select {
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--text); padding:6px; border-radius:6px;
+}
+input[type=range] { width:120px; }
+#save-btn {
+  width:100%; margin-top:16px; padding:12px;
+  background:var(--green); border:none; color:#000;
+  font-weight:bold; font-size:15px; border-radius:10px; cursor:pointer;
+  font-family:sans-serif;
+}
+#ai-panel {
+  position:fixed; bottom:88px; left:8px; right:8px;
+  background:var(--bg2); border:1px solid var(--purple);
+  border-radius:12px; z-index:50; max-height:50vh;
+  display:flex; flex-direction:column;
+  box-shadow:0 0 20px rgba(124,58,237,.3);
+}
+#ai-header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:10px 14px; border-bottom:1px solid var(--border);
+  color:var(--purple); font-weight:bold; font-family:sans-serif;
+}
+#ai-header button { background:none; border:none; color:var(--text2); font-size:16px; cursor:pointer; }
+#ai-output { flex:1; overflow-y:auto; padding:12px; font-size:13px; line-height:1.6; white-space:pre-wrap; font-family:sans-serif; color:var(--text); }
+#ai-input-row { display:flex; gap:8px; padding:8px; border-top:1px solid var(--border); }
+#ai-input {
+  flex:1; background:var(--bg3); border:1px solid var(--border);
+  color:var(--text); padding:8px; border-radius:6px; font-size:13px; outline:none;
+}
+#ai-input-row button { background:var(--purple); border:none; color:#fff; padding:8px 14px; border-radius:6px; font-size:14px; cursor:pointer; }
+body.theme-matrix { --bg:#000800; --bg2:#001000; --bg3:#002000; --green:#00ff41; --text:#00ff41; }
+body.theme-ocean  { --bg:#040e1a; --bg2:#071525; --bg3:#0d2340; --green:#00d4ff; --text:#c8e8ff; }
+.hidden { display:none !important; }
+</style>
 </head>
 <body>
 
@@ -52,8 +178,7 @@
     </div>
     <div class="setting-row">
       <label>حجم الخط</label>
-      <input type="range" min="10" max="22" value="14" id="set-fontsize"
-        oninput="changeFontSize(this.value)">
+      <input type="range" min="10" max="22" value="14" id="set-fontsize" oninput="changeFontSize(this.value)">
       <span id="font-size-val">14</span>
     </div>
     <div class="setting-row">
@@ -91,6 +216,178 @@
   </div>
 </div>
 
-<script src="terminal.js"></script>
+<script>
+'use strict';
+function setAppHeight(){document.documentElement.style.setProperty('--app-height', window.innerHeight + 'px');}
+setAppHeight();
+window.addEventListener('resize', setAppHeight);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', setAppHeight);
+const S = {
+  tabs:[], activeTab:0, tabCount:0,
+  history:[], histIdx:-1, curInput:'',
+  endpoint:'', lang:'ar', fontSize:14, theme:'dark',
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  applyTheme(S.theme);
+  applyFontSize(S.fontSize);
+  addTab();
+  document.getElementById('cmd-input').addEventListener('keydown', onKeyDown);
+  document.getElementById('cmd-input').focus();
+  document.getElementById('ai-input').addEventListener('keydown', e => { if(e.key==='Enter') sendAI(); });
+});
+
+function addTab() {
+  const id = ++S.tabCount;
+  S.tabs.push({id, name:`Shell ${id}`, lines:[], cwd:'~'});
+  switchTab(id); renderTabs(); printWelcome();
+}
+function switchTab(id) {
+  S.activeTab=id; renderTabs(); renderOutput(); updatePrompt(); focusInput();
+}
+function closeTab(id,e) {
+  e.stopPropagation();
+  if(S.tabs.length===1) return;
+  S.tabs=S.tabs.filter(t=>t.id!==id);
+  if(S.activeTab===id) switchTab(S.tabs[S.tabs.length-1].id);
+  else renderTabs();
+}
+function renderTabs() {
+  document.getElementById('tabs-list').innerHTML=S.tabs.map(t=>`
+    <div class="tab ${t.id===S.activeTab?'active':''}" onclick="switchTab(${t.id})">
+      ● ${t.name}
+      ${S.tabs.length>1?`<span class="tab-close" onclick="closeTab(${t.id},event)">✕</span>`:''}
+    </div>`).join('');
+}
+function getTab() { return S.tabs.find(t=>t.id===S.activeTab); }
+
+function print(text,cls='line-output') {
+  const tab=getTab(); if(!tab) return;
+  tab.lines.push({text,cls}); appendLine(text,cls);
+}
+function appendLine(text,cls) {
+  const el=document.getElementById('terminal-output');
+  const div=document.createElement('div');
+  div.className=cls; div.textContent=text;
+  el.appendChild(div); el.scrollTop=el.scrollHeight;
+}
+function renderOutput() {
+  const el=document.getElementById('terminal-output'); el.innerHTML='';
+  const tab=getTab(); if(!tab) return;
+  tab.lines.forEach(l=>appendLine(l.text,l.cls));
+}
+function printWelcome() {
+  print('╔══════════════════════════╗','line-info');
+  print('║  ⚡ TermAI  v2.0        ║','line-info');
+  print('║  اكتب !help للمساعدة    ║','line-info');
+  print('╚══════════════════════════╝','line-info');
+}
+function focusInput() { document.getElementById('cmd-input').focus(); }
+
+function onKeyDown(e) {
+  if(e.key==='Enter') { e.preventDefault(); const i=document.getElementById('cmd-input'); const cmd=i.value.trim(); i.value=''; if(cmd) runCommand(cmd); else print(''); }
+  else if(e.key==='ArrowUp') { e.preventDefault(); historyUp(); }
+  else if(e.key==='ArrowDown') { e.preventDefault(); historyDown(); }
+}
+function insertChar(c) {
+  const i=document.getElementById('cmd-input');
+  const p=i.selectionStart;
+  i.value=i.value.slice(0,p)+c+i.value.slice(p);
+  i.selectionStart=i.selectionEnd=p+c.length; i.focus();
+}
+function sendCtrl(key) {
+  if(key==='c') { const i=document.getElementById('cmd-input'); const cmd=i.value; i.value=''; const t=getTab(); print((t?t.cwd:'~')+' ❯ '+cmd+'^C','line-prompt'); }
+  else if(key==='l') { const t=getTab(); if(t) t.lines=[]; document.getElementById('terminal-output').innerHTML=''; }
+}
+function sendTab() { print('[ Tab: autocomplete not available in preview ]','line-info'); }
+function historyUp() {
+  const i=document.getElementById('cmd-input');
+  if(S.histIdx===-1) S.curInput=i.value;
+  if(S.histIdx<S.history.length-1) { S.histIdx++; i.value=S.history[S.history.length-1-S.histIdx]; }
+}
+function historyDown() {
+  const i=document.getElementById('cmd-input');
+  if(S.histIdx>0) { S.histIdx--; i.value=S.history[S.history.length-1-S.histIdx]; }
+  else { S.histIdx=-1; i.value=S.curInput; }
+}
+function addHistory(cmd) {
+  if(!cmd||S.history[S.history.length-1]===cmd) return;
+  S.history.push(cmd);
+}
+
+async function runCommand(cmd) {
+  const tab=getTab(); const cwd=tab?tab.cwd:'~';
+  S.histIdx=-1; addHistory(cmd);
+  print(cwd+' ❯ '+cmd,'line-prompt');
+  if(cmd==='clear'||cmd==='cls') { if(tab) tab.lines=[]; document.getElementById('terminal-output').innerHTML=''; return; }
+  if(cmd==='!help') { printHelp(); return; }
+  if(cmd.startsWith('!ai ')) { await askAI(cmd.slice(4)); return; }
+  if(cmd.startsWith('!explain ')) { await askAI('اشرح: '+cmd.slice(9)); return; }
+  // Demo mode
+  const DEMO = {
+    'ls':'Documents  Downloads  Projects  .config',
+    'pwd':'/data/data/com.termai/files/home',
+    'whoami':'termai',
+    'date':new Date().toString(),
+    'uname -a':'Linux termai 5.15 Android aarch64',
+    'echo hello':'hello',
+    'ls -la':'total 4\ndrwxr-xr-x  Documents\ndrwxr-xr-x  Downloads\ndrwxr-xr-x  Projects',
+  };
+  if(DEMO[cmd]) { print(DEMO[cmd]); }
+  else { print(`-bash: ${cmd}: command not found`,'line-error'); }
+}
+
+function updatePrompt() {
+  const tab=getTab(); const cwd=tab?tab.cwd:'~';
+  document.getElementById('prompt').textContent=cwd+' ❯ ';
+  document.getElementById('pwd-display').textContent=cwd;
+}
+function printHelp() {
+  print('──── أوامر TermAI ────','line-info');
+  print('!ai <سؤال>      اسأل الذكاء الاصطناعي','line-output');
+  print('!explain <أمر>  اشرح أمراً','line-output');
+  print('clear           مسح الشاشة','line-output');
+  print('↑ ↓             تاريخ الأوامر','line-output');
+}
+
+function openSettings() { document.getElementById('settings-overlay').classList.remove('hidden'); }
+function closeSettings() { document.getElementById('settings-overlay').classList.add('hidden'); }
+function closeSettingsBg(e) { if(e.target.id==='settings-overlay') closeSettings(); }
+function saveSettings() {
+  S.endpoint=document.getElementById('set-endpoint').value.trim();
+  S.lang=document.getElementById('set-lang').value;
+  closeSettings();
+  print('✅ تم حفظ الإعدادات','line-info');
+}
+function changeFontSize(val) {
+  S.fontSize=parseInt(val);
+  document.getElementById('font-size-val').textContent=val;
+  applyFontSize(S.fontSize);
+}
+function applyFontSize(size) {
+  document.getElementById('terminal-output').style.fontSize=size+'px';
+  document.getElementById('cmd-input').style.fontSize=size+'px';
+  document.getElementById('prompt').style.fontSize=size+'px';
+}
+function applyTheme(name) {
+  S.theme=name;
+  document.body.className=name!=='dark'?'theme-'+name:'';
+}
+function openAI() { document.getElementById('ai-panel').classList.remove('hidden'); document.getElementById('ai-input').focus(); }
+function closeAI() { document.getElementById('ai-panel').classList.add('hidden'); focusInput(); }
+async function sendAI() {
+  const i=document.getElementById('ai-input'); const q=i.value.trim(); if(!q) return; i.value=''; await askAI(q);
+}
+async function askAI(question) {
+  if(!S.endpoint) { document.getElementById('ai-output').textContent='⚠️ أضف AI Endpoint في الإعدادات'; openAI(); return; }
+  document.getElementById('ai-output').textContent='⏳ جاري التفكير...'; openAI();
+  try {
+    const sys=S.lang==='ar'?'أنت مساعد terminal ذكي. تجاوب بالعربية السعودية.':'You are a smart terminal assistant.';
+    const res=await fetch(S.endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system:sys,messages:[{role:'user',content:question}]}),signal:AbortSignal.timeout(30000)});
+    const data=await res.json();
+    document.getElementById('ai-output').textContent=data.content||data.error||'لا يوجد رد';
+  } catch(e) { document.getElementById('ai-output').textContent='❌ خطأ: '+e.message; }
+}
+</script>
 </body>
 </html>
