@@ -1,7 +1,10 @@
 /* ═══════════════════════════════════════════
-   TermAI — AI Engine v2
-   Full Pipeline: User → Planner → Security → Approval → Execute → Summary
+   TermAI v2 — AI Engine
+   Full pipeline: Chat · Explain · Generate · Plan · Autocomplete
+   Google Play compliant: no harmful content
    ═══════════════════════════════════════════ */
+
+'use strict';
 
 class AIEngine {
   constructor() {
@@ -13,16 +16,17 @@ class AIEngine {
     this.online      = false;
     this.history     = [];
     this.cmdContext  = [];
-    this.maxContext  = 8;
+    this.maxContext  = 6;
+    this.callCount   = 0;
     this.loadSettings();
   }
 
-  // ─── Load from SettingsManager ────────────────
+  // ─── Load settings ────────────────────────────
   loadSettings() {
     try {
       if (window.Settings) {
-        const raw  = Settings.getAllSettings();
-        const s    = JSON.parse(raw);
+        const raw = Settings.getAllSettings();
+        const s   = JSON.parse(raw);
         this.endpoint    = s.ai_endpoint   || '';
         this.lang        = s.ai_lang       || 'ar';
         this.autoAnalyze = s.ai_auto_error !== false;
@@ -31,31 +35,36 @@ class AIEngine {
         this.lang        = localStorage.getItem('termai_lang')     || 'ar';
         this.autoAnalyze = localStorage.getItem('termai_auto_ai')  !== 'false';
       }
-    } catch(e) {}
+    } catch {}
   }
 
-  // ─── Core API call (via Android AIBridge) ─────
+  // ─── Core API call ────────────────────────────
   call(systemPrompt, messages) {
     return new Promise((resolve, reject) => {
       if (!this.endpoint) return reject(new Error('NO_ENDPOINT'));
       if (!this.isPremium) return reject(new Error('NOT_PREMIUM'));
 
+      this.callCount++;
+
       if (window.AIBridge) {
-        // Route through native AIManager (rate limiting, logging, secure)
-        const id = `ai_${Date.now()}`;
+        // Route through native AIManager (rate limiting, logging)
+        const id = `ai_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         window.terminalCallbacks[id] = (result) => {
           delete window.terminalCallbacks[id];
-          const r = typeof result === 'string' ? JSON.parse(result) : result;
-          if (r.error) return reject(new Error(r.error));
-          resolve(r.content || '');
+          try {
+            const r = typeof result === 'string' ? JSON.parse(result) : result;
+            if (r.error) return reject(new Error(r.error));
+            resolve(r.content || '');
+          } catch(e) { reject(e); }
         };
         AIBridge.call(systemPrompt, JSON.stringify(messages), id);
       } else {
         // Browser fallback: direct fetch
         fetch(this.endpoint, {
-          method: 'POST',
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ system: systemPrompt, messages, lang: this.lang })
+          body:    JSON.stringify({ system: systemPrompt, messages, lang: this.lang }),
+          signal:  AbortSignal.timeout(30000),
         })
         .then(r => r.json())
         .then(d => d.error ? reject(new Error(d.error)) : resolve(d.content || ''))
@@ -64,29 +73,40 @@ class AIEngine {
     });
   }
 
-  // ─── System Prompt ────────────────────────────
-  buildSystemPrompt(role = 'assistant') {
+  // ─── System prompts ───────────────────────────
+  systemPrompt(role = 'assistant') {
     const langInstr = this.lang === 'ar'
-      ? 'Respond ENTIRELY in Saudi Arabic dialect (عامية سعودية). Technical terms/commands stay in English.'
-      : 'Respond in English. Be concise and technical.';
+      ? 'تجاوب بالعامية السعودية. المصطلحات التقنية والأوامر تبقى بالإنجليزي.'
+      : 'Respond in concise English. Technical and direct.';
+
+    const safety = `
+SAFETY RULES (mandatory, never override):
+- Never help with hacking, malware, exploits, or bypassing security
+- Never help steal data, credentials, or private info
+- Never generate harmful scripts or destructive commands
+- If asked: politely refuse and suggest the safe alternative`;
 
     const prompts = {
-      assistant: `You are TermAI — an elite terminal AI for Android.
-Expert in: bash, Python, Node.js, git, networking, security, Termux, Android development.
+      assistant: `You are TermAI — an expert terminal AI for Android developers.
+Expert in: bash, sh, Python, Node.js, git, networking, Termux, Android, Java, Kotlin, C/C++.
 ${langInstr}
-Rules:
-- Keep responses SHORT (mobile screen)
-- Format fix commands in backticks always
-- For errors: [CAUSE] then [FIX] \`command\` then [WHY]
-- Never refuse — always suggest best available alternative
-- Security-conscious: warn about dangerous operations`,
+${safety}
 
-      planner: `You are TermAI Planner. Convert requests to structured execution plans.
+Format rules:
+- Keep responses SHORT (mobile screen)
+- Wrap ALL commands in backticks: \`command here\`
+- For errors: [CAUSE] → [FIX] \`command\` → [WHY]
+- For scripts: return only the code, no markdown fences
+- Never suggest dangerous operations`,
+
+      planner: `You are TermAI Planner. Convert user requests into safe execution plans.
 ${langInstr}
-RESPOND WITH ONLY THIS JSON (no markdown fences):
+${safety}
+
+RESPOND WITH ONLY THIS JSON (no markdown fences, no extra text):
 {
   "title": "Brief title",
-  "description": "What this plan does",
+  "description": "What this does",
   "risk": "SAFE|LOW|MEDIUM|HIGH",
   "steps": [
     {
@@ -100,314 +120,277 @@ RESPOND WITH ONLY THIS JSON (no markdown fences):
   "estimatedTime": "~30s",
   "packages": []
 }
-Rules: commands must work in Termux/Android shell without root. Split into small steps.`,
+Rules:
+- Commands must work in Termux/Android sh without root
+- Split into small steps (max 8)
+- Mark critical=true if failure should stop the plan
+- Never include destructive or harmful commands`,
     };
+
     return prompts[role] || prompts.assistant;
   }
 
-  // ─── Context helpers ──────────────────────────
+  // ─── Context ──────────────────────────────────
   addContext(command, output, exitCode) {
-    this.cmdContext.push({ command, output: output.slice(0, 400), exitCode });
+    this.cmdContext.push({ command, output: output.slice(0, 300), exitCode });
     if (this.cmdContext.length > this.maxContext) this.cmdContext.shift();
   }
 
-  buildContextBlock() {
+  contextBlock() {
     if (!this.cmdContext.length) return '';
-    return '\n\nRecent terminal context:\n' +
+    return '\n\nRecent context:\n' +
       this.cmdContext.slice(-3).map(c =>
-        `$ ${c.command}\n${c.output.slice(0,200)}${c.exitCode !== 0 ? ` [exit:${c.exitCode}]` : ''}`
+        `$ ${c.command}\n${c.output.slice(0,150)}${c.exitCode !== 0 ? ` [exit:${c.exitCode}]` : ''}`
       ).join('\n---\n');
   }
 
   // ═══════════════════════════════════════════════
-  // AI Features
+  //  AI FEATURES
   // ═══════════════════════════════════════════════
 
-  // ─── Error analysis ───────────────────────────
   async analyzeError(command, output, exitCode) {
-    const msg = `Command failed (exit ${exitCode}):\n$ ${command}\nOutput:\n${output.slice(0,800)}${this.buildContextBlock()}`;
-    return await this.call(this.buildSystemPrompt(), [{ role:'user', content:msg }]);
+    const msg = `Command failed (exit ${exitCode}):\n$ ${command}\nOutput:\n${output.slice(0,600)}${this.contextBlock()}`;
+    return await this.call(this.systemPrompt(), [{ role: 'user', content: msg }]);
   }
 
-  // ─── Explain command ──────────────────────────
   async explainCommand(command) {
     return await this.call(
-      this.buildSystemPrompt(),
-      [{ role:'user', content:`Explain this command: \`${command}\`` }]
+      this.systemPrompt(),
+      [{ role: 'user', content: `Explain this command in detail:\n\`${command}\`` }]
     );
   }
 
-  // ─── Generate script ──────────────────────────
   async generateScript(description) {
-    const prompt = `Generate a complete working bash script for: ${description}
-Requirements: Termux/Android compatible, no root, handle errors, add comments.
-Return ONLY the script code — no markdown fences, no explanation.`;
-    return await this.call(this.buildSystemPrompt(), [{ role:'user', content:prompt }]);
+    const prompt = `Generate a complete working shell script for:\n"${description}"\n\nRequirements:\n- Compatible with Termux/Android sh\n- No root required\n- Handle errors gracefully\n- Add comments\n- Return ONLY the script code, no explanation, no markdown fences`;
+    return await this.call(this.systemPrompt(), [{ role: 'user', content: prompt }]);
   }
 
-  // ─── Smart autocomplete ───────────────────────
   async autocomplete(partial, history = []) {
-    const prompt = `Terminal autocomplete. Partial: "${partial}"
-Recent history: ${history.slice(-5).join(', ')||'none'}
-Return ONLY a JSON array of 3-5 completions, nothing else.
-Example: ["git commit -m \\"msg\\"","git config --global user.name"]`;
-    const raw  = await this.call(this.buildSystemPrompt(), [{ role:'user', content:prompt }]);
-    try { return JSON.parse(raw.replace(/```json?|```/g,'').trim()); }
+    const prompt = `Terminal autocomplete for partial command: "${partial}"\nRecent history: ${history.slice(-5).join(', ') || 'none'}\nReturn ONLY a JSON array of 3-5 completions. Example: ["git commit -m \\"msg\\"","git status"]\nNo explanation, no markdown.`;
+    const raw = await this.call(this.systemPrompt(), [{ role: 'user', content: prompt }]);
+    try { return JSON.parse(raw.replace(/```json?|```/g, '').trim()); }
     catch { return []; }
   }
 
-  // ─── Chat ─────────────────────────────────────
   async chat(userMessage) {
-    this.history.push({ role:'user', content: userMessage + this.buildContextBlock() });
-    const result = await this.call(this.buildSystemPrompt(), this.history);
-    this.history.push({ role:'assistant', content: result });
-    if (this.history.length > 20) this.history = this.history.slice(-16);
+    this.history.push({ role: 'user', content: userMessage + this.contextBlock() });
+    if (this.history.length > 24) this.history = this.history.slice(-20);
+    const result = await this.call(this.systemPrompt(), this.history);
+    this.history.push({ role: 'assistant', content: result });
     return result;
   }
 
-  // ─── AI summarize (post-execution) ───────────
   async summarize(request, results) {
-    const summary = results.map((r,i) =>
-      `Step ${i+1}: ${r.description}\nExit: ${r.exitCode}\n${r.output.slice(0,200)}`
+    const summary = results.map((r, i) =>
+      `Step ${i+1}: ${r.description}\nExit: ${r.exitCode}\n${(r.output||'').slice(0,200)}`
     ).join('\n---\n');
-    const prompt = `User requested: "${request}"\n\nExecution results:\n${summary}\n\nProvide a brief summary of what was accomplished and any issues.`;
-    return await this.call(this.buildSystemPrompt(), [{ role:'user', content:prompt }]);
+    const prompt = `User requested: "${request}"\n\nResults:\n${summary}\n\nBrief summary of what was accomplished.`;
+    return await this.call(this.systemPrompt(), [{ role: 'user', content: prompt }]);
   }
 
-  // ═══════════════════════════════════════════════
-  // PLANNER — Full AI execution flow
-  // ═══════════════════════════════════════════════
-  async generatePlan(userRequest) {
-    if (window.AIBridge) {
-      // Use native AIManager.generatePlan() (has better prompting + logging)
-      return new Promise((resolve, reject) => {
-        const id = `plan_${Date.now()}`;
-        window.terminalCallbacks[id] = (result) => {
-          delete window.terminalCallbacks[id];
-          const r = typeof result === 'string' ? JSON.parse(result) : result;
-          if (r.error) return reject(new Error(r.error));
-          resolve(r.plan);
-        };
-        AIBridge.generatePlan(userRequest, id);
-      });
-    } else {
-      // Browser fallback
-      const raw = await this.call(this.buildSystemPrompt('planner'),
-        [{ role:'user', content:'Generate execution plan for: ' + userRequest }]);
-      return JSON.parse(raw.replace(/```json?|```/g,'').trim());
-    }
-  }
-
-  // ─── Extract fix command from AI response ─────
-  extractFixCommand(response) {
-    const matches = response.match(/`([^`\n]{3,80})`/g);
+  // ─── Extract command from AI response ─────────
+  extractCommand(response) {
+    if (!response) return null;
+    // Look for backtick commands
+    const matches = response.match(/`([^`\n]{3,120})`/g);
     if (!matches) return null;
-    const cmds = matches.map(m => m.replace(/`/g,'').trim());
-    return cmds.find(c => !c.includes('://') && c.split(' ').length >= 1) || cmds[0];
+    const cmds = matches
+      .map(m => m.replace(/`/g, '').trim())
+      .filter(c => !c.includes('://') && !c.startsWith('http'));
+    return cmds.find(c => /^[a-z]/.test(c)) || cmds[0] || null;
   }
 
   // ─── Settings persistence ─────────────────────
   setEndpoint(url) {
     this.endpoint = url;
-    if (window.Settings) Settings.setString('ai_endpoint', url);
-    else localStorage.setItem('termai_endpoint', url);
-    this.testConnection();
+    localStorage.setItem('termai_endpoint', url);
+    if (url) this.testConnection();
+    else { this.online = false; updateAIBadge(false); }
   }
 
-  setLang(lang) {
-    this.lang = lang;
-    if (window.Settings) Settings.setString('ai_lang', lang);
-    else localStorage.setItem('termai_lang', lang);
-  }
-
-  setAutoAnalyze(val) {
-    this.autoAnalyze = val;
-    if (window.Settings) Settings.setBool('ai_auto_error', val);
-  }
-
-  setSecurity(val) {
-    this.security = val;
-  }
+  setLang(lang)          { this.lang = lang; localStorage.setItem('termai_lang', lang); }
+  setAutoAnalyze(val)    { this.autoAnalyze = val; }
+  setSecurity(val)       { this.security = val; }
 
   async testConnection() {
     if (!this.endpoint) { this.online = false; updateAIBadge(false); return; }
     try {
       const r = await fetch(this.endpoint + '?ping=1', { signal: AbortSignal.timeout(5000) });
       this.online = r.ok;
-    } catch { this.online = false; }
+    } catch {
+      this.online = false;
+    }
     updateAIBadge(this.online && this.isPremium);
   }
 }
 
 // ═══════════════════════════════════════════════
-// AI Planner UI — Full flow with approval
+//  AI PLANNER — Multi-step execution with approval
 // ═══════════════════════════════════════════════
-const AIPlanner = {
 
+const AIPlanner = {
   currentPlan: null,
 
-  // Entry point: user types natural language request
   async run(userRequest) {
-    if (!AI.isPremium) { showAIPremiumGate(); return; }
-    if (!AI.endpoint)  { showAISetupGate();   return; }
+    if (!AI.isPremium) {
+      showAIPanel({
+        loading: false, label: '💎 Premium Required',
+        content: 'AI Planner requires TermAI Premium.\n\nUnlock:\n• Natural language commands\n• Multi-step plans\n• Script generation\n• Arabic mode',
+        actions: [
+          { label: '💎 Upgrade',       primary: true, fn: () => { closeAIPanel(); upgradeToPremium(); } },
+          { label: '🎁 Start Trial',              fn: () => { closeAIPanel(); startTrial(); } },
+          { label: 'Close',                       fn: closeAIPanel }
+        ]
+      });
+      return;
+    }
+    if (!AI.endpoint) {
+      showAIPanel({
+        loading: false, label: '⚙️ Setup Required',
+        content: 'Set your API endpoint in Settings to use the AI Planner.',
+        actions: [
+          { label: '⚙️ Settings', primary: true, fn: () => { closeAIPanel(); openSettings(); } },
+          { label: 'Close', fn: closeAIPanel }
+        ]
+      });
+      return;
+    }
 
-    showPlannerLoading(userRequest);
+    showAIPanel({ loading: true, label: `📋 Planning: ${userRequest.slice(0,40)}…` });
 
     try {
-      const plan = await AI.generatePlan(userRequest);
+      const plan = await this._generatePlan(userRequest);
       this.currentPlan = plan;
-      this.showApproval(plan);
+      this._showApproval(plan);
     } catch(e) {
-      closePlanner();
       handleAIError(e);
     }
   },
 
-  // Show plan to user before any execution
-  showApproval(plan) {
-    const riskColor = { SAFE:'#00e676', LOW:'#ffaa00', MEDIUM:'#ff8800', HIGH:'#ff4444' };
-    const color     = riskColor[plan.risk] || '#888';
+  async _generatePlan(userRequest) {
+    if (window.AIBridge) {
+      return new Promise((resolve, reject) => {
+        const id = `plan_${Date.now()}`;
+        window.terminalCallbacks[id] = (result) => {
+          delete window.terminalCallbacks[id];
+          try {
+            const r = typeof result === 'string' ? JSON.parse(result) : result;
+            if (r.error) return reject(new Error(r.error));
+            resolve(r.plan);
+          } catch(e) { reject(e); }
+        };
+        AIBridge.generatePlan(userRequest, id);
+      });
+    } else {
+      const raw = await AI.call(
+        AI.systemPrompt('planner'),
+        [{ role: 'user', content: 'Generate execution plan for: ' + userRequest }]
+      );
+      return JSON.parse(raw.replace(/```json?|```/g, '').trim());
+    }
+  },
+
+  _showApproval(plan) {
+    const riskColor = { SAFE:'var(--success)', LOW:'var(--warn)', MEDIUM:'#ff8800', HIGH:'var(--danger)' };
+    const color     = riskColor[plan.risk] || 'var(--text2)';
 
     const stepsHtml = (plan.steps || []).map(s => `
       <div class="plan-step">
         <span class="step-num">${s.id}</span>
         <div class="step-body">
-          <div class="step-desc">${s.description}</div>
-          <code class="step-cmd">${s.command}</code>
+          <div class="step-desc">${escHtml(s.description)}</div>
+          <code class="step-cmd">${escHtml(s.command)}</code>
         </div>
       </div>`).join('');
 
     showAIPanel({
       loading: false,
-      label: `📋 ${plan.title || 'Execution Plan'}`,
+      label:   `📋 ${plan.title || 'Execution Plan'}`,
       content: `
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <span style="color:${color};font-weight:700;font-size:11px">[${plan.risk}]</span>
-          <span style="color:var(--text2);font-size:12px">${plan.description}</span>
+          <span style="color:${color};font-weight:800;font-size:11px">[${plan.risk}]</span>
+          <span style="color:var(--text2);font-size:12px;font-family:var(--sans)">${escHtml(plan.description || '')}</span>
         </div>
-        <div style="color:var(--text2);font-size:11px;margin-bottom:8px">
-          ⏱ ${plan.estimatedTime || 'unknown'} · ${(plan.steps||[]).length} steps
+        <div style="color:var(--text2);font-size:11px;margin-bottom:10px;font-family:var(--sans)">
+          ⏱ ${plan.estimatedTime || '?'} · ${(plan.steps||[]).length} steps
+          ${plan.packages?.length ? ` · 📦 ${plan.packages.join(', ')}` : ''}
         </div>
-        <div id="plan-steps">${stepsHtml}</div>
-        ${plan.packages?.length
-          ? `<div style="margin-top:8px;color:var(--text2);font-size:11px">📦 Packages: ${plan.packages.join(', ')}</div>`
-          : ''}`,
+        <div>${stepsHtml}</div>`,
+      raw: true,
       actions: [
-        { label: '✅ Approve & Run', primary: true, onclick: 'AIPlanner.execute()' },
-        { label: '❌ Cancel',                       onclick: 'closeAIPanel()' }
+        { label: '✅ Approve & Run', primary: true, fn: () => AIPlanner.execute() },
+        { label: '❌ Cancel',                       fn: closeAIPanel }
       ]
     });
   },
 
-  // Execute approved plan
   async execute() {
     const plan = this.currentPlan;
-    if (!plan || !plan.steps?.length) return;
+    if (!plan?.steps?.length) return;
     closeAIPanel();
 
-    // Security scan each step first
+    // Security scan all steps first
     for (const step of plan.steps) {
-      const scanRaw = window.Terminal ? Terminal.securityScan(step.command) : '{"safe":true}';
-      const scan    = JSON.parse(scanRaw);
-      if (scan.blocked) {
-        showAIPanel({ loading:false, label:'⛔ Security Block',
-          content: `Step ${step.id} blocked:\n${scan.reason}\n\`${step.command}\``,
-          actions:[{label:'Close',onclick:'closeAIPanel()'}] });
-        return;
+      if (window.Terminal) {
+        try {
+          const scan = JSON.parse(Terminal.securityScan(step.command));
+          if (scan.blocked) {
+            showAIPanel({
+              loading: false, label: '⛔ Blocked by Security',
+              content: `Step ${step.id} blocked:\n${scan.reason}\n\`${step.command}\``,
+              actions: [{ label: 'Close', fn: closeAIPanel }]
+            });
+            return;
+          }
+        } catch {}
       }
     }
 
-    const tab = getActiveTab();
+    const tab = activeTab();
     if (!tab) return;
 
     if (window.Terminal) {
-      // Native queue execution
       const sessionId  = `plan_${Date.now()}`;
       const callbackId = `done_${Date.now()}`;
 
-      showQueueProgress(plan);
+      showAIPanel({
+        loading: false, label: '⚡ Running Plan',
+        content: `Executing ${plan.steps.length} steps…\n\nDo not close the app.`,
+        actions: [{ label: '⛔ Cancel', fn: () => {
+          try { Terminal.cancelQueue?.(); } catch {}
+          closeAIPanel();
+        }}]
+      });
 
       window.terminalCallbacks[callbackId] = async (result) => {
         delete window.terminalCallbacks[callbackId];
-        const r = typeof result === 'string' ? JSON.parse(result) : result;
-        const results = r.results || [];
-
-        // AI summary
         try {
-          showAIPanel({ loading:true, label:'🤖 Summarizing...' });
+          const r = typeof result === 'string' ? JSON.parse(result) : result;
+          showAIPanel({ loading: true, label: '🤖 Summarizing…' });
           const summary = await AI.summarize(
-            plan.title, results.map(x => ({ description:x.description, exitCode:x.exitCode, output:x.output||'' })));
-          showAIPanel({ loading:false, label:'✅ Complete',
-            content: summary,
-            actions:[{label:'Close',onclick:'closeAIPanel()'}]
+            plan.title,
+            (r.results || []).map(x => ({ description: x.description, exitCode: x.exitCode, output: x.output||'' }))
+          );
+          showAIPanel({
+            loading: false, label: '✅ Complete', content: summary,
+            actions: [{ label: 'Close', fn: closeAIPanel }]
           });
-        } catch(e) {
-          closeAIPanel();
-        }
+        } catch { closeAIPanel(); }
       };
 
       Terminal.executeQueue(JSON.stringify(plan.steps), sessionId, callbackId);
 
     } else {
-      // Demo mode: simulate
+      // Demo mode
       for (const step of plan.steps) {
-        tab.term.writeln(`\r\n\x1b[35m▶ ${step.description}\x1b[0m`);
-        tab.term.writeln(`$ ${step.command}`);
-        await new Promise(r => setTimeout(r, 300));
+        tab.term.writeln(`\r\n\x1b[35m▶ ${escHtml(step.description)}\x1b[0m`);
+        tab.term.writeln(`\x1b[2m$ ${escHtml(step.command)}\x1b[0m`);
+        await new Promise(r => setTimeout(r, 250));
       }
       showPrompt(tab);
     }
   }
 };
 
-function showPlannerLoading(request) {
-  showAIPanel({ loading:true, label:`📋 Planning: ${request.slice(0,40)}…` });
-}
-
-function showQueueProgress(plan) {
-  showAIPanel({
-    loading: false,
-    label:   '⚡ Executing Plan',
-    content: `Running ${plan.steps.length} steps…\n\nYou can cancel at any time.`,
-    actions: [{ label:'⛔ Cancel', onclick:'Terminal.cancelQueue&&Terminal.cancelQueue()' }]
-  });
-}
-
-function showAIPremiumGate() {
-  showAIPanel({ loading:false, label:'💎 Premium Required',
-    content:'AI planning requires TermAI Premium.\n\nUpgrade to unlock:\n• Natural language commands\n• Smart error analysis\n• Script generation\n• Arabic mode',
-    actions:[
-      {label:'💎 Upgrade', primary:true, onclick:'upgradeToPremium()'},
-      {label:'🆓 Start Trial', onclick:'startTrial()'},
-      {label:'Close', onclick:'closeAIPanel()'}
-    ]
-  });
-}
-
-function showAISetupGate() {
-  showAIPanel({ loading:false, label:'⚙️ Setup Required',
-    content:'Set your API endpoint in Settings to enable AI features.',
-    actions:[
-      {label:'⚙️ Settings', primary:true, onclick:'openSettings()'},
-      {label:'Close', onclick:'closeAIPanel()'}
-    ]
-  });
-}
-
-function startTrial() {
-  if (window.Billing) {
-    const r = JSON.parse(Billing.startTrial());
-    if (r.ok) {
-      AI.isPremium = true;
-      updateAIBadge(true);
-      showToast('🎉 7-day trial started!');
-      closeAIPanel();
-    } else {
-      showToast(r.reason || 'Trial not available');
-    }
-  }
-}
-
 // ─── Global AI instance ──────────────────────
 const AI = new AIEngine();
-setTimeout(() => AI.testConnection(), 2000);
