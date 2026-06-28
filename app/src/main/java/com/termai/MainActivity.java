@@ -95,7 +95,7 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
-        webView.setLayerType(View.LAYER_TYPE_NONE, null);
+        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
         webView.requestFocus();
