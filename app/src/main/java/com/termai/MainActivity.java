@@ -3,8 +3,10 @@ package com.termai;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.os.Bundle;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.view.inputmethod.InputMethodManager;
 import android.webkit.*;
 
 import com.termai.ai.AIManager;
@@ -94,6 +96,14 @@ public class MainActivity extends Activity {
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
         webView.requestFocus();
+        webView.setOnTouchListener((v, event) -> {
+            if (!v.hasFocus()) v.requestFocus();
+            if (event.getAction() == MotionEvent.ACTION_UP) {
+                InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+                if (imm != null) imm.showSoftInput(v, InputMethodManager.SHOW_FORCED);
+            }
+            return false;
+        });
         webView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
             if (webView != null) {
                 webView.evaluateJavascript("window.dispatchEvent(new Event('resize'))", null);
