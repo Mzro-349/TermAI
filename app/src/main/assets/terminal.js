@@ -212,9 +212,9 @@ async function runCommand(cmd) {
   if (window.Terminal) {
     try {
       const cbId = 'cb_' + Date.now();
-      window.termCb = window.termCb || {};
-      window.termCb[cbId] = (result) => {
-        delete window.termCb[cbId];
+      window.terminalCallbacks = window.terminalCallbacks || {};
+      window.terminalCallbacks[cbId] = (result) => {
+        delete window.terminalCallbacks[cbId];
         try {
           const r = JSON.parse(result);
           if (r.output) print(r.output, r.exitCode !== 0 ? 'line-error' : 'line-output');
