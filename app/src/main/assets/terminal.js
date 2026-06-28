@@ -93,31 +93,7 @@ function createTab(label) {
   term.open(document.getElementById('terminal'));
   setTimeout(() => { fitAddon.fit(); term.focus(); }, 60);
 
-  // Android keyboard fix: use hidden input to trigger keyboard
-  const kbInput = document.getElementById('kb-input');
-  if (kbInput) {
-    document.getElementById('terminal-container').addEventListener('click', () => {
-      kbInput.focus();
-      kbInput.click();
-    });
-    kbInput.addEventListener('input', (e) => {
-      const val = e.target.value;
-      if (!val) return;
-      const tab = activeTab();
-      if (!tab) return;
-      for (const ch of val) {
-        tab.inputBuffer += ch;
-        tab.term.write(ch);
-      }
-      kbInput.value = '';
-    });
-    kbInput.addEventListener('keydown', (e) => {
-      const tab = activeTab();
-      if (!tab) return;
-      if (e.key === 'Enter')     { handleEnter(tab); e.preventDefault(); }
-      else if (e.key === 'Backspace') { handleBackspace(tab); e.preventDefault(); }
-    });
-  }
+
 
   new ResizeObserver(() => { try { fitAddon.fit(); } catch {} })
     .observe(document.getElementById('terminal-container'));
@@ -1042,6 +1018,34 @@ document.addEventListener('DOMContentLoaded', () => {
   AI.isPremium = isPro;
   updateAIBadge(false);
   updatePremiumBadge(isPro);
+
+  // Android keyboard fix — setup once
+  const kbInput = document.getElementById('kb-input');
+  if (kbInput) {
+    document.getElementById('terminal-container').addEventListener('click', () => {
+      kbInput.focus();
+    });
+    kbInput.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (!val) return;
+      const tab = activeTab();
+      if (!tab) return;
+      for (const ch of val) {
+        tab.inputBuffer += ch;
+        tab.term.write(ch);
+      }
+      kbInput.value = '';
+    });
+    kbInput.addEventListener('keydown', (e) => {
+      const tab = activeTab();
+      if (!tab) return;
+      if (e.key === 'Enter')          { handleEnter(tab);    e.preventDefault(); }
+      else if (e.key === 'Backspace') { handleBackspace(tab); e.preventDefault(); }
+      else if (e.key === 'ArrowUp')   { navigateHistory(tab, -1); e.preventDefault(); }
+      else if (e.key === 'ArrowDown') { navigateHistory(tab,  1); e.preventDefault(); }
+      else if (e.key === 'Tab')       { handleTabComplete(tab);   e.preventDefault(); }
+    });
+  }
 
   // Create first tab
   createTab('Shell 1');
