@@ -106,8 +106,6 @@ public class MainActivity extends Activity {
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
         webView.requestFocus();
-        webView.requestFocus();
-        webView.requestFocus();
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
