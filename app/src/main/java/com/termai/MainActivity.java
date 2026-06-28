@@ -134,13 +134,18 @@ public class MainActivity extends Activity {
     }
 
     private void setFullscreen() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            getWindow().setDecorFitsSystemWindows(false);
-            WindowInsetsController c = getWindow().getInsetsController();
-            if (c != null) {
-                c.hide(WindowInsets.Type.statusBars() | WindowInsets.Type.navigationBars());
-                c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            }
+        try {
+            getWindow().getDecorView().post(() -> {
+                getWindow().getDecorView().setSystemUiVisibility(
+                    View.SYSTEM_UI_FLAG_FULLSCREEN        |
+                    View.SYSTEM_UI_FLAG_HIDE_NAVIGATION   |
+                    View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY  |
+                    View.SYSTEM_UI_FLAG_LAYOUT_STABLE     |
+                    View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                    View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+            });
+        } catch (Throwable ignored) {}
+    }
         } else {
             getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_FULLSCREEN |
