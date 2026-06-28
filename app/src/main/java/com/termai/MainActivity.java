@@ -94,6 +94,11 @@ public class MainActivity extends Activity {
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
         webView.requestFocus();
+        webView.getViewTreeObserver().addOnGlobalLayoutListener(() -> {
+            if (webView != null) {
+                webView.evaluateJavascript("window.dispatchEvent(new Event('resize'))", null);
+            }
+        });
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -125,6 +130,10 @@ public class MainActivity extends Activity {
                 View.SYSTEM_UI_FLAG_LAYOUT_STABLE     |
                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION);
+            if (webView != null) {
+                webView.postDelayed(() ->
+                    webView.evaluateJavascript("window.dispatchEvent(new Event('resize'))", null), 100);
+            }
         } catch (Throwable ignored) {}
     }
 
