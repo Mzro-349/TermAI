@@ -92,7 +92,10 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        s.setSupportZoom(false);
+        s.setBuiltInZoomControls(false);
+        s.setDisplayZoomControls(false);
+        webView.setLayerType(View.LAYER_TYPE_NONE, null);
         webView.setFocusable(true);
         webView.setFocusableInTouchMode(true);
         webView.requestFocus();
