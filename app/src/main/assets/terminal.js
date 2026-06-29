@@ -12,6 +12,13 @@ const S = {
 };
 
 // ─── Init ────────────────────────────────────
+// Receive streaming output from ShellEngine
+window.onShellChunk = function(sessionId, chunk) {
+  // Remove ANSI escape codes for clean display
+  const clean = chunk.replace(/\x1b\[[0-9;]*m/g, '').replace(/\r\n/g, '\n').replace(/\r/g, '');
+  if (clean.trim()) print(clean.trimEnd(), 'line-output');
+};
+
 window.addEventListener('DOMContentLoaded', () => {
   applyTheme(S.theme);
   applyFontSize(S.fontSize);
