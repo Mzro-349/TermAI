@@ -209,6 +209,8 @@ async function runCommand(cmd) {
   if (cmd.startsWith('!explain ')) { await explainCmd(cmd.slice(9)); return; }
 
   // Execute via native bridge
+  // Bridge: show status
+  if (!window.Terminal) print('[Demo Mode - no native bridge]', 'line-info');
   if (window.Terminal) {
     try {
       const cbId = 'cb_' + Date.now();
