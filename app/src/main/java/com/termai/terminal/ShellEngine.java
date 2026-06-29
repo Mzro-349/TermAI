@@ -64,7 +64,12 @@ public class ShellEngine {
 
         new File(homeDir).mkdirs();
 
-        ProcessBuilder pb = new ProcessBuilder("sh")
+        // Use Termux bash if available, fallback to system sh
+        String shell = "/data/data/com.termux/files/usr/bin/bash";
+        if (!new java.io.File(shell).exists()) {
+            shell = "/system/bin/sh";
+        }
+        ProcessBuilder pb = new ProcessBuilder(shell)
             .redirectErrorStream(false);
 
         pb.environment().put("HOME",    homeDir);
@@ -72,9 +77,9 @@ public class ShellEngine {
         pb.environment().put("LANG",    "en_US.UTF-8");
         pb.environment().put("PS1",     ""); // suppress prompt — we manage it in JS
         pb.environment().put("PATH",
-            ""
-            + ""
-            + "/system/bin:/system/xbin");
+            "/data/data/com.termux/files/usr/bin"
+            + ":/data/data/com.termux/files/usr/bin/applets"
+            + ":/system/bin:/system/xbin");
         pb.environment().put("TMPDIR",  "/data/local/tmp");
         pb.environment().put("PREFIX",  "/data/data/com.termai/files/usr");
         pb.directory(new File(homeDir));
