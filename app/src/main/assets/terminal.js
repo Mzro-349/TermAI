@@ -226,12 +226,11 @@ async function runCommand(cmd) {
         delete window.terminalCallbacks[cbId];
         try {
           const r = JSON.parse(result);
-          if (r.output) print(r.output, r.exitCode !== 0 ? 'line-error' : 'line-output');
           if (r.cwd) {
             if (tab) tab.cwd = r.cwd;
             updatePrompt();
           }
-        } catch { print(result); }
+        } catch {}
       };
       Terminal.executeCommand(cmd, 'main', cbId);
     } catch(e) { print('Error: ' + e.message, 'line-error'); }
